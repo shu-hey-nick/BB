@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BB">
+<meta name="theme-color" content="#000000">
+<title>BB 家計簿</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #000; color: #fff; font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; min-height: 100vh; overscroll-behavior: none; }
+  input { font-family: inherit; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+#app { max-width: 430px; margin: 0 auto; min-height: 100vh; padding-bottom: 90px; }
+
+/* Header */
+.header {
+position: sticky; top: 0; z-index: 10;
+background: rgba(0,0,0,.92);
+backdrop-filter: blur(12px);
+-webkit-backdrop-filter: blur(12px);
+border-bottom: 1px solid #1c1c1e;
+padding: 14px 20px;
+display: flex; align-items: center; justify-content: space-between;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-box {
+width: 34px; height: 34px; background: #fff; border-radius: 8px;
+display: flex; align-items: center; justify-content: center;
+}
+.logo-text { font-size: 13px; font-weight: 900; color: #000; letter-spacing: -1px; }
+.logo-label { font-size: 11px; color: #555; font-weight: 700; letter-spacing: 2px; }
+.month-nav { display: flex; align-items: center; gap: 10px; }
+.month-nav button {
+background: #1c1c1e; border: none; color: #fff;
+width: 32px; height: 32px; border-radius: 8px;
+font-size: 18px; cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+}
+.month-nav button:disabled { background: #111; color: #333; cursor: default; }
+.month-label { font-size: 14px; font-weight: 700; min-width: 80px; text-align: center; }
+
+/* Nav */
+nav {
+position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+width: 100%; max-width: 430px;
+background: rgba(0,0,0,.92);
+backdrop-filter: blur(12px);
+-webkit-backdrop-filter: blur(12px);
+border-top: 1px solid #1c1c1e;
+display: flex; padding: 8px 0 28px;
+z-index: 10;
+}
+nav button {
+flex: 1; background: none; border: none; color: #555;
+font-size: 9px; cursor: pointer; padding: 4px 0;
+display: flex; flex-direction: column; align-items: center; gap: 3px;
+transition: color .15s; font-family: inherit;
+}
+nav button.active { color: #fff; font-weight: 700; }
+nav button span.icon { font-size: 20px; line-height: 1; }
+
+/* Content */
+.page { padding: 18px 16px 0; display: none; }
+.page.active { display: block; }
+
+/* Cards grid */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.card {
+background: #1c1c1e; border-radius: 16px; padding: 16px 16px 14px;
+}
+.card-label { font-size: 11px; color: #888; margin-bottom: 4px; font-weight: 500; }
+.card-value { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.card-note { font-size: 10px; color: #888; margin-top: 3px; }
+
+/* Goal card progress */
+.goal-bar-wrap { height: 5px; background: #2c2c2e; border-radius: 3px; overflow: hidden; margin: 8px 0 4px; }
+.goal-bar { height: 100%; border-radius: 3px; transition: width .4s; }
+.goal-rate { font-size: 11px; color: #aaa; }
+.goal-change-btn {
+margin-top: 8px; background: #2c2c2e; border: none; color: #888;
+border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+
+/* Section label */
+.section-label { font-size: 11px; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+/* Income/Expense rows */
+.row {
+background: #1c1c1e; border-radius: 12px; padding: 13px 14px;
+margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
+}
+.row.fixed { border-left: 3px solid #f97316; }
+.row-name { font-size: 13px; color: #aaa; margin-bottom: 2px; }
+.row-amount { font-size: 20px; font-weight: 700; }
+.row-actions { display: flex; gap: 8px; align-items: center; }
+.btn-edit {
+background: #2c2c2e; border: none; color: #aaa;
+border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.btn-del { background: none; border: none; color: #f87171; font-size: 18px; cursor: pointer; }
+.badge-fixed {
+background: #f97316; color: #000; font-size: 9px; font-weight: 800;
+border-radius: 4px; padding: 2px 6px; margin-left: 6px;
+}
+.cal-date-label { font-size: 11px; color: #34d399; margin-bottom: 2px; font-weight: 600; }
+.row-memo { font-size: 11px; color: #888; }
+.empty-msg { color: #555; text-align: center; padding: 50px 0; font-size: 14px; }
+
+/* Page header row */
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.page-total-label { font-size: 11px; color: #888; margin-bottom: 2px; }
+.page-total-val { font-size: 26px; font-weight: 800; }
+.page-total-sub { font-size: 11px; color: #888; margin-top: 2px; }
+.btn-add {
+border: none; color: #000; border-radius: 12px;
+padding: 10px 16px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+
+/* Graph area */
+.graph-card { background: #1c1c1e; border-radius: 16px; padding: 16px; margin-bottom: 10px; }
+.graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.graph-title { font-size: 13px; color: #aaa; font-weight: 600; }
+.graph-dots { display: flex; gap: 5px; }
+.graph-dot { height: 6px; border-radius: 3px; background: #333; cursor: pointer; transition: width .2s; }
+.graph-dot.active { background: #fff; }
+.bar-wrap { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-bottom: 4px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.bar-val { font-size: 9px; color: #aaa; }
+.bar { width: 100%; border-radius: 3px 3px 0 0; transition: height .3s; }
+.bar-labels { display: flex; gap: 5px; }
+.bar-label { flex: 1; text-align: center; font-size: 9px; color: #555; }
+.pie-legend { display: flex; justify-content: center; gap: 24px; margin-top: 4px; }
+.pie-item { text-align: center; }
+.pie-item-label { font-size: 10px; margin-bottom: 2px; }
+.pie-item-val { font-size: 15px; font-weight: 700; }
+
+/* Calendar */
+.cal-card { background: #1c1c1e; border-radius: 16px; padding: 14px; margin-bottom: 16px; }
+.cal-dow { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 8px; }
+.cal-dow-cell { text-align: center; font-size: 10px; font-weight: 600; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px 0; }
+.cal-cell {
+min-height: 52px; padding: 4px 2px; text-align: center;
+cursor: pointer; border-radius: 10px;
+-webkit-user-select: none; user-select: none;
+}
+.cal-cell.today { background: #2c2c2e; }
+.cal-day { font-size: 13px; font-weight: 400; line-height: 1.4; }
+.cal-dot { width: 5px; height: 5px; background: #34d399; border-radius: 50%; margin: 2px auto 1px; }
+.cal-amt { font-size: 8px; color: #34d399; line-height: 1; }
+
+/* Cal registered list */
+.cal-list-card { background: #1c1c1e; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.cal-list-date { font-size: 12px; color: #34d399; font-weight: 700; margin-bottom: 8px; }
+.cal-list-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; }
+.cal-list-item-actions { display: flex; align-items: center; gap: 10px; }
+.cal-list-amt { font-size: 16px; font-weight: 700; color: #60a5fa; }
+.btn-edit-sm {
+background: #2c2c2e; border: none; color: #aaa;
+border-radius: 7px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.btn-del-sm { background: none; border: none; color: #f87171; font-size: 16px; cursor: pointer; }
+
+/* Modal */
+.modal-overlay {
+position: fixed; inset: 0; background: rgba(0,0,0,.78);
+z-index: 100; display: flex; align-items: flex-end;
+}
+.modal-box {
+background: #1c1c1e; border-radius: 22px 22px 0 0;
+width: 100%; max-height: 88vh; overflow-y: auto;
+padding: 24px 20px 52px;
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.modal-title { font-size: 18px; color: #fff; font-weight: 700; }
+.modal-close {
+background: #2c2c2e; border: none; color: #aaa;
+width: 30px; height: 30px; border-radius: 50%;
+font-size: 16px; cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+}
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; font-weight: 500; }
+.field input {
+width: 100%; background: #2c2c2e; border: 1px solid #3a3a3c;
+border-radius: 12px; color: #fff; font-size: 16px;
+padding: 13px 14px; outline: none;
+-webkit-appearance: none; appearance: none; font-family: inherit;
+}
+.toggle-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; cursor: pointer; }
+.toggle-track {
+width: 50px; height: 28px; border-radius: 14px; background: #3a3a3c;
+position: relative; transition: background .2s; flex-shrink: 0;
+}
+.toggle-track.on { background: #f97316; }
+.toggle-thumb {
+position: absolute; width: 22px; height: 22px; background: #fff;
+border-radius: 50%; top: 3px; left: 3px;
+transition: left .2s; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.toggle-track.on .toggle-thumb { left: 25px; }
+.toggle-label { font-size: 14px; color: #ddd; }
+.btn-primary {
+width: 100%; border: none; color: #000;
+border-radius: 14px; padding: 15px; font-size: 16px;
+font-weight: 800; cursor: pointer; margin-top: 4px; font-family: inherit;
+}
+
+/* Day modal */
+.day-modal-item {
+background: #2c2c2e; border-radius: 10px; padding: 10px 12px;
+margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+}
+.day-modal-name { font-size: 14px; color: #ddd; }
+.day-modal-memo { font-size: 11px; color: #888; }
+.day-modal-amt { font-size: 17px; font-weight: 700; color: #60a5fa; margin-top: 2px; }
+.btn-edit-day {
+background: #3a3a3c; border: none; color: #aaa;
+border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+}
+
+/* Delete confirm */
+.confirm-overlay {
+position: fixed; inset: 0; background: rgba(0,0,0,.82);
+z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.confirm-box { background: #1c1c1e; border-radius: 18px; padding: 24px; width: 100%; max-width: 320px; }
+.confirm-msg { color: #fff; font-size: 16px; margin-bottom: 22px; text-align: center; }
+.confirm-btns { display: flex; gap: 10px; }
+.confirm-btns button { flex: 1; border: none; border-radius: 12px; padding: 14px; font-size: 15px; cursor: pointer; font-family: inherit; }
+</style>
+
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-box"><span class="logo-text">BB</span></div>
+      <span class="logo-label">KAKEIBO</span>
+    </div>
+    <div class="month-nav">
+      <button id="btn-prev">‹</button>
+      <span class="month-label" id="month-label"></span>
+      <button id="btn-next">›</button>
+    </div>
+  </div>
+
+  <!-- Pages -->
+
+  <div class="page active" id="page-home">
+    <div class="grid2">
+      <div class="card">
+        <div class="card-label">収入合計</div>
+        <div class="card-value" id="home-inc" style="color:#60a5fa"></div>
+        <div class="card-note" id="home-cal-note"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">支出合計</div>
+        <div class="card-value" id="home-exp" style="color:#f97316"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-label">残高 / 貯金</div>
+        <div class="card-value" id="home-balance"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">貯金目標</div>
+        <div class="card-value" id="home-goal" style="color:#34d399;font-size:20px"></div>
+        <div class="goal-bar-wrap"><div class="goal-bar" id="goal-bar"></div></div>
+        <div class="goal-rate" id="goal-rate"></div>
+        <button class="goal-change-btn" id="btn-goal-change">変更</button>
+      </div>
+    </div>
+    <!-- Graph -->
+    <div class="graph-card">
+      <div class="graph-header">
+        <span class="graph-title" id="graph-title"></span>
+        <div class="graph-dots" id="graph-dots"></div>
+      </div>
+      <div id="graph-body" style="touch-action:pan-y"></div>
+    </div>
+  </div>
+
+  <div class="page" id="page-income">
+    <div class="page-header">
+      <div>
+        <div class="page-total-label">収入合計</div>
+        <div class="page-total-val" id="inc-total" style="color:#60a5fa"></div>
+        <div class="page-total-sub" id="inc-cal-sub"></div>
+      </div>
+      <button class="btn-add" style="background:#60a5fa" id="btn-add-income">＋ 追加</button>
+    </div>
+    <div id="income-list"></div>
+  </div>
+
+  <div class="page" id="page-expense">
+    <div class="page-header">
+      <div>
+        <div class="page-total-label">支出合計</div>
+        <div class="page-total-val" id="exp-total" style="color:#f97316"></div>
+      </div>
+      <button class="btn-add" style="background:#f97316" id="btn-add-expense">＋ 追加</button>
+    </div>
+    <div id="expense-list"></div>
+  </div>
+
+  <div class="page" id="page-calendar">
+    <div class="page-header" style="margin-bottom:14px">
+      <div>
+        <div class="page-total-label">カレンダー収入合計</div>
+        <div class="page-total-val" id="cal-total" style="color:#34d399"></div>
+      </div>
+    </div>
+    <div id="cal-grid-wrap"></div>
+    <div id="cal-list"></div>
+  </div>
+
+  <!-- Nav -->
+
+  <nav>
+    <button class="active" data-tab="home"><span class="icon">⊞</span>ホーム</button>
+    <button data-tab="income"><span class="icon">↑</span>収入</button>
+    <button data-tab="expense"><span class="icon">↓</span>支出</button>
+    <button data-tab="calendar"><span class="icon">▦</span>カレンダー</button>
+  </nav>
+</div>
+
+<!-- Modal template -->
+
+<div class="modal-overlay" id="modal" style="display:none" onclick="if(event.target===this) closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title"></span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Delete confirm -->
+
+<div class="confirm-overlay" id="confirm" style="display:none">
+  <div class="confirm-box">
+    <div class="confirm-msg">この項目を削除しますか？</div>
+    <div class="confirm-btns">
+      <button style="background:#2c2c2e;color:#fff" onclick="closeConfirm()">キャンセル</button>
+      <button style="background:#f87171;color:#fff;font-weight:700" id="confirm-ok">削除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Storage ──────────────────────────────────────────────────────────────
+const SK = 'bb_kakeibo_v3';
+function loadAll() { try { return JSON.parse(localStorage.getItem(SK)) || {}; } catch { return {}; } }
+function saveAll(d) { try { localStorage.setItem(SK, JSON.stringify(d)); } catch(e) { console.error(e); } }
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function mk(y,m) { return `${y}-${String(m).padStart(2,'0')}`; }
+function addM(y,m,d) { const dt=new Date(y,m-1+d,1); return {y:dt.getFullYear(),m:dt.getMonth()+1}; }
+function daysIn(y,m) { return new Date(y,m,0).getDate(); }
+function fmtM(y,m) { return `${y}年${m}月`; }
+function fmt(n) { if(n===''||n==null) return ''; const v=Number(n); if(isNaN(v)) return ''; return v.toLocaleString('ja-JP'); }
+function uid() { return Math.random().toString(36).slice(2,9); }
+function today() { const d=new Date(); return {y:d.getFullYear(),m:d.getMonth()+1,d:d.getDate()}; }
+
+// ── Data ──────────────────────────────────────────────────────────────────
+let allData = loadAll();
+let cur = { y: today().y, m: today().m };
+
+function emptyMonth() { return { incomes:[], expenses:[], calIncomes:{}, savingGoal:30000 }; }
+function getMonth(key) {
+  if (allData[key]) return allData[key];
+  const prev = addM(cur.y, cur.m, -1);
+  const pm = allData[mk(prev.y, prev.m)];
+  const base = emptyMonth();
+  if (pm) {
+    base.incomes = (pm.incomes||[]).map(i=>({...i, amount:''}));
+    base.expenses = (pm.expenses||[]).filter(e=>e.fixed).map(e=>({...e}));
+    base.savingGoal = pm.savingGoal || 30000;
+  }
+  return base;
+}
+function saveMonth(md) {
+  allData[mk(cur.y,cur.m)] = md;
+  saveAll(allData);
+}
+function curMonth() { return getMonth(mk(cur.y,cur.m)); }
+
+function totals(md) {
+  const regInc = (md.incomes||[]).reduce((s,i)=>s+(Number(i.amount)||0),0);
+  const calInc = Object.values(md.calIncomes||{}).flat().reduce((s,t)=>s+(Number(t.amount)||0),0);
+  const inc = regInc + calInc;
+  const exp = (md.expenses||[]).reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const balance = inc - exp;
+  const goal = Number(md.savingGoal)||0;
+  const rate = goal > 0 ? Math.round(balance/goal*1000)/10 : null;
+  return { regInc, calInc, inc, exp, balance, goal, rate };
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let currentTab = 'home';
+let graphIdx = 0;
+let graphTouchX = null;
+let pendingDelete = null;
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render() {
+  const td = today();
+  const maxFuture = addM(td.y, td.m, 12);
+  const canNext = !(cur.y===maxFuture.y && cur.m===maxFuture.m);
+  document.getElementById('month-label').textContent = fmtM(cur.y, cur.m);
+  document.getElementById('btn-next').disabled = !canNext;
+
+  const md = curMonth();
+  const { regInc, calInc, inc, exp, balance, goal, rate } = totals(md);
+
+  // Home
+  document.getElementById('home-inc').textContent = '¥'+fmt(inc);
+  document.getElementById('home-exp').textContent = '¥'+fmt(exp);
+  const calNote = document.getElementById('home-cal-note');
+  calNote.textContent = calInc > 0 ? 'うちカレンダー ¥'+fmt(calInc) : '';
+  const balEl = document.getElementById('home-balance');
+  balEl.textContent = '¥'+fmt(balance);
+  balEl.style.color = balance >= 0 ? '#34d399' : '#f87171';
+  document.getElementById('home-goal').textContent = '¥'+fmt(goal);
+  const barEl = document.getElementById('goal-bar');
+  if (rate !== null) {
+    barEl.style.width = Math.min(rate,100)+'%';
+    barEl.style.background = rate>=100?'#34d399':rate>=50?'#facc15':'#f87171';
+    document.getElementById('goal-rate').textContent = rate+'% 達成';
+  } else {
+    barEl.style.width = '0%';
+    document.getElementById('goal-rate').textContent = '未設定';
+  }
+
+  renderGraphs(md);
+
+  // Income page
+  document.getElementById('inc-total').textContent = '¥'+fmt(inc);
+  const incSub = document.getElementById('inc-cal-sub');
+  incSub.textContent = calInc > 0 ? 'うちカレンダー収入 ¥'+fmt(calInc) : '';
+  renderIncomeList(md);
+
+  // Expense page
+  document.getElementById('exp-total').textContent = '¥'+fmt(exp);
+  renderExpenseList(md);
+
+  // Calendar page
+  document.getElementById('cal-total').textContent = '¥'+fmt(calInc);
+  renderCalendar(md);
+}
+
+// ── Graph ─────────────────────────────────────────────────────────────────
+const graphDefs = [
+  { title:'固定費 / 変動費', render: renderPie },
+  { title:'月別支出推移',   render: renderBarExp },
+  { title:'月別貯金率',     render: renderBarRate },
+];
+function graphMonths() {
+  return Array.from({length:6},(_,i)=>{ const g=addM(cur.y,cur.m,i-5); return mk(g.y,g.m); });
+}
+function renderGraphs(md) {
+  const dots = document.getElementById('graph-dots');
+  dots.innerHTML = '';
+  graphDefs.forEach((_,i) => {
+    const d = document.createElement('div');
+    d.className = 'graph-dot'+(i===graphIdx?' active':'');
+    d.style.width = (i===graphIdx?18:6)+'px';
+    d.onclick = ()=>{ graphIdx=i; renderGraphs(curMonth()); };
+    dots.appendChild(d);
+  });
+  document.getElementById('graph-title').textContent = graphDefs[graphIdx].title;
+  const body = document.getElementById('graph-body');
+  body.innerHTML = '';
+  graphDefs[graphIdx].render(body, md);
+}
+function renderPie(el, md) {
+  const fixed = (md.expenses||[]).filter(e=>e.fixed).reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const variable = (md.expenses||[]).filter(e=>!e.fixed).reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const total = fixed+variable;
+  if (!total) { el.innerHTML='<div style="text-align:center;color:#555;padding:28px 0;font-size:13px">データなし</div>'; return; }
+  const fp = Math.round(fixed/total*100); const vp = 100-fp;
+  const r=72,cx=90,cy=90;
+  function pt(a) { const rad=(a-90)*Math.PI/180; return {x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)}; }
+  function arc(s,e,color) {
+    if(e-s>=360) e=359.99;
+    const p1=pt(s),p2=pt(e),lg=e-s>180?1:0;
+    return `<path d="M${cx},${cy} L${p1.x},${p1.y} A${r},${r} 0 ${lg},1 ${p2.x},${p2.y} Z" fill="${color}"/>`;
+  }
+  el.innerHTML = `
+    <div style="text-align:center">
+      <svg width="180" height="180" viewBox="0 0 180 180" style="display:block;margin:0 auto">
+        ${arc(0,fp/100*360,'#f97316')}${arc(fp/100*360,360,'#60a5fa')}
+        <circle cx="${cx}" cy="${cy}" r="44" fill="#1c1c1e"/>
+        <text x="${cx}" y="${cy-5}" text-anchor="middle" fill="#fff" font-size="14" font-weight="800">${fp}%</text>
+        <text x="${cx}" y="${cy+13}" text-anchor="middle" fill="#888" font-size="9">固定費</text>
+      </svg>
+      <div class="pie-legend">
+        <div class="pie-item">
+          <div class="pie-item-label" style="color:#f97316">● 固定費 ${fp}%</div>
+          <div class="pie-item-val" style="color:#f97316">¥${fmt(fixed)}</div>
+        </div>
+        <div class="pie-item">
+          <div class="pie-item-label" style="color:#60a5fa">● 変動費 ${vp}%</div>
+          <div class="pie-item-val" style="color:#60a5fa">¥${fmt(variable)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+function renderBar(el, months, color, valFn, isRate) {
+  const vals = months.map(valFn);
+  const max = Math.max(...vals,1);
+  el.innerHTML = `
+    <div class="bar-wrap">
+      ${months.map((m,i)=>`
+        <div class="bar-col">
+          <div class="bar-val">${vals[i]>0?(isRate?vals[i]+'%':Math.round(vals[i]/1000)+'k'):''}</div>
+          <div class="bar" style="background:${color};height:${Math.round(vals[i]/max*88)}px;min-height:${vals[i]>0?3:0}px"></div>
+        </div>`).join('')}
+    </div>
+    <div class="bar-labels">
+      ${months.map(m=>`<div class="bar-label">${m.slice(5)}月</div>`).join('')}
+    </div>`;
+}
+function renderBarExp(el) {
+  renderBar(el, graphMonths(), '#f97316', k=>{ const md=allData[k]; return md?(md.expenses||[]).reduce((s,e)=>s+(Number(e.amount)||0),0):0; });
+}
+function renderBarRate(el) {
+  renderBar(el, graphMonths(), '#34d399', k=>{ const md=allData[k]; if(!md) return 0; const {balance,goal}=totals(md); return goal>0?Math.max(0,Math.round(balance/goal*100)):0; }, true);
+}
+
+// ── Income List ───────────────────────────────────────────────────────────
+function renderIncomeList(md) {
+  const el = document.getElementById('income-list');
+  let html = '';
+  if ((md.incomes||[]).length > 0) {
+    html += `<div class="section-label">定期収入</div>`;
+    (md.incomes||[]).forEach(item => {
+      const amtHtml = (item.amount!==''&&item.amount!=null)
+        ? `<div class="row-amount" style="color:#60a5fa">¥${fmt(item.amount)}</div>`
+        : `<div style="color:#555;font-size:13px">未入力</div>`;
+      html += `<div class="row">
+        <div><div class="row-name">${esc(item.name)}</div>${amtHtml}</div>
+        <div class="row-actions">
+          <button class="btn-edit" onclick="openIncomeModal('${item.id}')">編集</button>
+          <button class="btn-del" onclick="confirmDelete('income','${item.id}')">✕</button>
+        </div>
+      </div>`;
+    });
+  }
+  // Calendar entries
+  const calEntries = [];
+  Object.entries(md.calIncomes||{}).sort((a,b)=>Number(a[0])-Number(b[0])).forEach(([day,items])=>{
+    items.forEach(it=>calEntries.push({...it,day:Number(day)}));
+  });
+  if (calEntries.length > 0) {
+    const mt = (md.incomes||[]).length>0 ? 'margin-top:20px' : '';
+    html += `<div class="section-label" style="${mt}">カレンダー収入</div>`;
+    calEntries.forEach(item=>{
+      html += `<div class="row">
+        <div>
+          <div class="cal-date-label">${cur.m}月${item.day}日</div>
+          <div class="row-name">${esc(item.name||'（名称なし）')}</div>
+          ${item.memo?`<div class="row-memo">${esc(item.memo)}</div>`:''}
+          <div class="row-amount" style="color:#60a5fa;margin-top:2px">¥${fmt(item.amount)}</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn-edit" onclick="openCalItemModal(${item.day},'${item.id}')">編集</button>
+          <button class="btn-del" onclick="deleteCalItem(${item.day},'${item.id}')">✕</button>
+        </div>
+      </div>`;
+    });
+  }
+  if ((md.incomes||[]).length===0 && calEntries.length===0) {
+    html = '<div class="empty-msg">収入項目がありません</div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── Expense List ──────────────────────────────────────────────────────────
+function renderExpenseList(md) {
+  const el = document.getElementById('expense-list');
+  const fixed = (md.expenses||[]).filter(e=>e.fixed);
+  const variable = (md.expenses||[]).filter(e=>!e.fixed);
+  let html = '';
+  if (fixed.length > 0) {
+    html += '<div class="section-label">固定費</div>';
+    fixed.forEach(item=>{ html += expenseRowHtml(item); });
+  }
+  if (variable.length > 0) {
+    html += `<div class="section-label" ${fixed.length>0?'style="margin-top:20px"':''}>変動費</div>`;
+    variable.forEach(item=>{ html += expenseRowHtml(item); });
+  }
+  if ((md.expenses||[]).length===0) {
+    html = '<div class="empty-msg">支出項目がありません</div>';
+  }
+  el.innerHTML = html;
+}
+function expenseRowHtml(item) {
+  return `<div class="row${item.fixed?' fixed':''}">
+    <div>
+      <div style="display:flex;align-items:center">
+        <span class="row-name">${esc(item.name)}</span>
+        ${item.fixed?'<span class="badge-fixed">固定</span>':''}
+      </div>
+      <div class="row-amount" style="color:#f97316">¥${fmt(item.amount)||'0'}</div>
+    </div>
+    <div class="row-actions">
+      <button class="btn-edit" onclick="openExpenseModal('${item.id}')">編集</button>
+      <button class="btn-del" onclick="confirmDelete('expense','${item.id}')">✕</button>
+    </div>
+  </div>`;
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────
+function renderCalendar(md) {
+  renderCalGrid(md);
+  renderCalList(md);
+}
+function renderCalGrid(md) {
+  const el = document.getElementById('cal-grid-wrap');
+  const days = daysIn(cur.y,cur.m);
+  const firstDay = new Date(cur.y,cur.m-1,1).getDay();
+  const td = today();
+  const DOW = ['日','月','火','水','木','金','土'];
+  const cols = DOW.map((d,i)=>`<div class="cal-dow-cell" style="color:${i===0?'#f87171':i===6?'#60a5fa':'#666'}">${d}</div>`).join('');
+  let cells = '';
+  for(let i=0;i<firstDay;i++) cells += '<div></div>';
+  for(let d=1;d<=days;d++) {
+    const items = (md.calIncomes||{})[String(d)]||[];
+    const hasInc = items.length>0;
+    const dayTotal = items.reduce((s,t)=>s+(Number(t.amount)||0),0);
+    const dow = (firstDay+d-1)%7;
+    const isToday = td.y===cur.y&&td.m===cur.m&&td.d===d;
+    const dayColor = dow===0?'#f87171':dow===6?'#60a5fa':'#ccc';
+    cells += `<div class="cal-cell${isToday?' today':''}" onclick="openCalDay(${d})">
+      <div class="cal-day" style="color:${dayColor};font-weight:${isToday?700:400}">${d}</div>
+      ${hasInc?`<div class="cal-dot"></div><div class="cal-amt">${dayTotal>=10000?Math.round(dayTotal/1000)+'k':fmt(dayTotal)}</div>`:''}
+    </div>`;
+  }
+  el.innerHTML = `<div class="cal-card">
+    <div class="cal-dow">${cols}</div>
+    <div class="cal-grid">${cells}</div>
+  </div>`;
+}
+function renderCalList(md) {
+  const el = document.getElementById('cal-list');
+  const entries = Object.entries(md.calIncomes||{}).sort((a,b)=>Number(a[0])-Number(b[0]));
+  if (!entries.length) { el.innerHTML=''; return; }
+  let html = '<div class="section-label">登録済み</div>';
+  entries.forEach(([day,items])=>{
+    let itemsHtml = items.map(it=>`
+      <div class="cal-list-item">
+        <div>
+          <div style="font-size:14px;color:#ddd">${esc(it.name||'（名称なし）')}</div>
+          ${it.memo?`<div style="font-size:11px;color:#888">${esc(it.memo)}</div>`:''}
+        </div>
+        <div class="cal-list-item-actions">
+          <span class="cal-list-amt">¥${fmt(it.amount)}</span>
+          <button class="btn-edit-sm" onclick="openCalItemModal(${day},'${it.id}')">編集</button>
+          <button class="btn-del-sm" onclick="deleteCalItem(${day},'${it.id}')">✕</button>
+        </div>
+      </div>`).join('');
+    html += `<div class="cal-list-card">
+      <div class="cal-list-date">${cur.m}月${day}日</div>
+      ${itemsHtml}
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+function openModal(title, bodyHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+// ── Income Modal ──────────────────────────────────────────────────────────
+function openIncomeModal(id) {
+  const md = curMonth();
+  const item = id ? (md.incomes||[]).find(i=>i.id===id) : null;
+  openModal(id ? '収入を編集' : '収入を追加', `
+    <div class="field"><label>項目名</label><input id="f-name" type="text" value="${esc(item?.name||'')}" placeholder="例：給与、副収入" autocomplete="off"></div>
+    <div class="field"><label>金額（円）</label><input id="f-amount" type="number" inputmode="numeric" value="${item?.amount||''}" placeholder="0" autocomplete="off"></div>
+    <button class="btn-primary" style="background:#60a5fa" onclick="saveIncome('${id||''}')">
+      ${id ? '保存' : '追加'}
+    </button>`);
+}
+function saveIncome(id) {
+  const name = document.getElementById('f-name').value.trim();
+  const amount = document.getElementById('f-amount').value;
+  if (!name) return;
+  const md = curMonth();
+  if (id) {
+    md.incomes = (md.incomes||[]).map(i=>i.id===id?{...i,name,amount}:i);
+  } else {
+    md.incomes = [...(md.incomes||[]), {id:uid(),name,amount}];
+  }
+  saveMonth(md); closeModal(); render();
+}
+
+// ── Expense Modal ─────────────────────────────────────────────────────────
+function openExpenseModal(id) {
+  const md = curMonth();
+  const item = id ? (md.expenses||[]).find(e=>e.id===id) : null;
+  const isFixed = item?.fixed || false;
+  openModal(id ? '支出を編集' : '支出を追加', `
+    <div class="field"><label>項目名</label><input id="f-name" type="text" value="${esc(item?.name||'')}" placeholder="例：家賃、食費" autocomplete="off"></div>
+    <div class="field"><label>金額（円）</label><input id="f-amount" type="number" inputmode="numeric" value="${item?.amount||''}" placeholder="0" autocomplete="off"></div>
+    <div class="toggle-wrap" onclick="toggleFixed()" id="toggle-wrap">
+      <div class="toggle-track${isFixed?' on':''}" id="toggle-track"><div class="toggle-thumb"></div></div>
+      <span class="toggle-label">固定費にする（来月も自動で引き継ぐ）</span>
+    </div>
+    <button class="btn-primary" style="background:#f97316" onclick="saveExpense('${id||''}')">
+      ${id ? '保存' : '追加'}
+    </button>`);
+}
+function toggleFixed() {
+  const t = document.getElementById('toggle-track');
+  t.classList.toggle('on');
+}
+function saveExpense(id) {
+  const name = document.getElementById('f-name').value.trim();
+  const amount = document.getElementById('f-amount').value;
+  const fixed = document.getElementById('toggle-track').classList.contains('on');
+  if (!name) return;
+  const md = curMonth();
+  if (id) {
+    md.expenses = (md.expenses||[]).map(e=>e.id===id?{...e,name,amount,fixed}:e);
+  } else {
+    md.expenses = [...(md.expenses||[]), {id:uid(),name,amount,fixed}];
+  }
+  saveMonth(md); closeModal(); render();
+}
+
+// ── Goal Modal ────────────────────────────────────────────────────────────
+function openGoalModal() {
+  const md = curMonth();
+  openModal('貯金目標を設定', `
+    <div class="field"><label>目標金額（円）</label><input id="f-goal" type="number" inputmode="numeric" value="${md.savingGoal||''}" placeholder="30000" autocomplete="off"></div>
+    <button class="btn-primary" style="background:#34d399" onclick="saveGoal()">OK</button>`);
+}
+function saveGoal() {
+  const md = curMonth();
+  md.savingGoal = Number(document.getElementById('f-goal').value)||0;
+  saveMonth(md); closeModal(); render();
+}
+
+// ── Calendar Day Modal ────────────────────────────────────────────────────
+function openCalDay(day) {
+  const md = curMonth();
+  const items = (md.calIncomes||{})[String(day)]||[];
+  let itemsHtml = items.length > 0 ? items.map(it=>`
+    <div class="day-modal-item">
+      <div>
+        <div class="day-modal-name">${esc(it.name||'（名称なし）')}</div>
+        ${it.memo?`<div class="day-modal-memo">${esc(it.memo)}</div>`:''}
+        <div class="day-modal-amt">¥${fmt(it.amount)}</div>
+      </div>
+      <button class="btn-edit-day" onclick="closeModal();openCalItemModal(${day},'${it.id}')">編集</button>
+    </div>`).join('') : '';
+  openModal(`${cur.m}月${day}日`, `
+    ${itemsHtml}
+    <button class="btn-primary" style="background:#34d399;margin-top:${items.length?8:0}px" onclick="closeModal();openCalItemModal(${day},null)">＋ この日に収入を追加</button>`);
+}
+
+// ── Calendar Item Modal ───────────────────────────────────────────────────
+function openCalItemModal(day, id) {
+  const md = curMonth();
+  const item = id ? ((md.calIncomes||{})[String(day)]||[]).find(x=>x.id===id) : null;
+  openModal(item?`${cur.m}月${day}日 − 編集`:`${cur.m}月${day}日 − 収入を追加`, `
+    <div class="field"><label>項目名</label><input id="f-name" type="text" value="${esc(item?.name||'')}" placeholder="例：フリマ売上、副業報酬" autocomplete="off"></div>
+    <div class="field"><label>金額（円）</label><input id="f-amount" type="number" inputmode="numeric" value="${item?.amount!=null?item.amount:''}" placeholder="0" autocomplete="off"></div>
+    <div class="field"><label>メモ（任意）</label><input id="f-memo" type="text" value="${esc(item?.memo||'')}" placeholder="例：メルカリ出品分" autocomplete="off"></div>
+    <button class="btn-primary" style="background:#34d399" onclick="saveCalItem(${day},'${id||''}')">
+      ${item ? '保存' : '登録'}
+    </button>`);
+}
+function saveCalItem(day, id) {
+  const name = document.getElementById('f-name').value;
+  const amount = document.getElementById('f-amount').value;
+  const memo = document.getElementById('f-memo').value;
+  if (!amount) return;
+  const md = curMonth();
+  if (!md.calIncomes) md.calIncomes = {};
+  const k = String(day);
+  if (id) {
+    md.calIncomes[k] = (md.calIncomes[k]||[]).map(x=>x.id===id?{...x,name,amount:Number(amount),memo}:x);
+  } else {
+    md.calIncomes[k] = [...(md.calIncomes[k]||[]), {id:uid(),name,amount:Number(amount),memo}];
+  }
+  saveMonth(md); closeModal(); render();
+}
+
+// ── Delete Cal Item (direct) ──────────────────────────────────────────────
+function deleteCalItem(day, id) {
+  const md = curMonth();
+  const k = String(day);
+  md.calIncomes[k] = (md.calIncomes[k]||[]).filter(x=>x.id!==id);
+  if (!md.calIncomes[k].length) delete md.calIncomes[k];
+  saveMonth(md); render();
+}
+
+// ── Delete Confirm ────────────────────────────────────────────────────────
+function confirmDelete(type, id) {
+  pendingDelete = {type,id};
+  document.getElementById('confirm').style.display = 'flex';
+}
+function closeConfirm() {
+  pendingDelete = null;
+  document.getElementById('confirm').style.display = 'none';
+}
+document.getElementById('confirm-ok').onclick = function() {
+  if (!pendingDelete) return;
+  const md = curMonth();
+  if (pendingDelete.type === 'income') md.incomes = (md.incomes||[]).filter(i=>i.id!==pendingDelete.id);
+  else md.expenses = (md.expenses||[]).filter(e=>e.id!==pendingDelete.id);
+  saveMonth(md); closeConfirm(); render();
+};
+
+// ── Tab ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    currentTab = btn.dataset.tab;
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+currentTab).classList.add('active');
+  });
+});
+
+// ── Month nav ─────────────────────────────────────────────────────────────
+document.getElementById('btn-prev').onclick = ()=>{ cur=addM(cur.y,cur.m,-1); render(); };
+document.getElementById('btn-next').onclick = ()=>{ cur=addM(cur.y,cur.m,1); render(); };
+
+// ── Button binds ──────────────────────────────────────────────────────────
+document.getElementById('btn-add-income').onclick = ()=>openIncomeModal(null);
+document.getElementById('btn-add-expense').onclick = ()=>openExpenseModal(null);
+document.getElementById('btn-goal-change').onclick = openGoalModal;
+
+// ── Graph swipe ───────────────────────────────────────────────────────────
+document.getElementById('graph-body').addEventListener('touchstart',e=>{graphTouchX=e.touches[0].clientX;},{passive:true});
+document.getElementById('graph-body').addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-graphTouchX;
+  if(Math.abs(dx)>40){ graphIdx=(graphIdx+(dx<0?1:-1)+graphDefs.length)%graphDefs.length; renderGraphs(curMonth()); }
+});
+
+// ── Utils ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+render();
+</script>
+
+</body>
+</html>
